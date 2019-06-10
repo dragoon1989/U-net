@@ -119,7 +119,7 @@ class UNet(object):
 
 		# output logits before softmax
 		self.logits_before_softmax = features9
-		
+
 
 # compute loss function (cross entropy in all pixels)
 def loss_func(labels, logits_before_softmax):
