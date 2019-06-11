@@ -30,8 +30,8 @@ def __read_single_example(lab_path, img_path):
 				image	image with shape [H,W], dtype=tf.float'''
 	# the label is in format HW (dtype=uint8)
 	label = tf.reshape(__read_png_image(lab_path), shape=(IMAGE_Y, IMAGE_X))
-	# the image is in format HW (dtype=float)
-	image = tf.reshape(__read_png_image(img_path), shape=(IMAGE_Y, IMAGE_X))
+	# the image is in format HWC (dtype=float32)
+	image = tf.reshape(__read_png_image(img_path), shape=(IMAGE_Y, IMAGE_X, 1))
 	image = tf.to_float(image)
 	# over
 	return label, image

@@ -92,7 +92,7 @@ class UNet(object):
 											   kernel_size=2,
 											   strides=2,
 											   padding='SAME')(features6)
-		deconv2 = deconv1[:][0:shape3[1]][0:shape3[2]][:]
+		deconv2 = deconv2[:][0:shape3[1]][0:shape3[2]][:]
 		concat2 = concat_channel(features3, deconv2)
 		# 7th encoder
 		features7 = conv_block(concat2, k_size=3, s_size=1, channels=256)
@@ -102,7 +102,7 @@ class UNet(object):
 											   kernel_size=2,
 											   strides=2,
 											   padding='SAME')(features7)
-		deconv3 = deconv1[:][0:shape2[1]][0:shape2[2]][:]
+		deconv3 = deconv3[:][0:shape2[1]][0:shape2[2]][:]
 		concat3 = concat_channel(features2, deconv3)
 		# 8th encoder
 		features8 = conv_block(concat3, k_size=3, s_size=1, channels=128)
@@ -112,7 +112,7 @@ class UNet(object):
 											   kernel_size=2,
 											   strides=2,
 											   padding='SAME')(features8)
-		deconv4 = deconv1[:][0:shape1[1]][0:shape1[2]][:]
+		deconv4 = deconv4[:][0:shape1[1]][0:shape1[2]][:]
 		concat4 = concat_channel(features1, deconv4)
 		# 9th encoder
 		features9 = conv_block(concat4, k_size=3, s_size=1, channels=64)

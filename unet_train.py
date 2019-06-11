@@ -17,8 +17,8 @@ from unet_input import NUM_CLASSES
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'		# only use one GPU is enough
 
 # constants
-train_record_path = ''
-test_record_path = ''
+train_record_path = 'membrane/train_record.txt'
+test_record_path = 'membrane/test_record.txt'
 
 summary_path = './tensorboard/'
 summary_name = 'summary-default'    # tensorboard default summary dir
@@ -26,8 +26,8 @@ summary_name = 'summary-default'    # tensorboard default summary dir
 model_path = './ckpts/'
 best_model_ckpt = 'best.ckpt'		# check point path
 
-train_dataset_size = 30
-test_dataset_size = 10
+train_dataset_size = 150
+test_dataset_size = 30
 
 # hyperparameters
 train_batch_size = 2
