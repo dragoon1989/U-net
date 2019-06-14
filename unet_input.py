@@ -13,6 +13,12 @@ def __lcn(image):
 	_mean, _var = tf.nn.moments(x=image, axes=[0,1])
 	filtered_img = (image - _mean)/tf.sqrt(_var)
 	return filtered_img
+	
+# convert label from {0,255} to {0,1} image
+def __mask_label(label):
+	''' input: label	label image in format HW, with dtype=tf.uint8
+		output: masked label	the same format as input'''
+	return tf.cast(tf.cast(label, tf.bool), tf.uint8)
 
 # read single .png image
 def __read_png_image(img_path):

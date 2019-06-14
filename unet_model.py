@@ -116,9 +116,13 @@ class UNet(object):
 		concat4 = concat_channel(features1, deconv4)
 		# 9th encoder
 		features9 = conv_block(concat4, k_size=3, s_size=1, channels=64)
-
-		# output logits before softmax
-		self.logits_before_softmax = features9
+		# 1x1 conv over all channels
+		self.logits_before_softmax = keras.layers.Conv2D(filters=2,
+														 kernel_size=1,
+														 strides=1,
+														 padding='SAME',
+														 activation='relu',
+														 kernel_initializer='he_normal')(features9)
 
 
 # compute loss function (cross entropy in all pixels)
