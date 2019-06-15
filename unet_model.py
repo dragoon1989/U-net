@@ -26,6 +26,38 @@ def conv_block(x, k_size, s_size, channels):
 								   kernel_initializer='he_normal')(features)
 	# over
 	return features
+	
+# internal function to build one block of 2 cascade conv2d with BN layers
+def conv_block_with_bn(x, k_size, s_size, channels):
+	''' input:	x --- input tensor of shape=(B,H,W,C)
+				k_size --- scalar, kernel size
+				s_size --- scalar, stride size
+				channels --- scalar, output channels
+		output:	features --- output feature map '''
+	# 1st conv
+	features = keras.layers.Conv2D(filters=channels,
+								   kernel_size=k_size,
+								   strides=s_size,
+								   padding='SAME',
+								   activation=None,
+								   kernel_initializer='he_normal')(x)
+	# add BN layer
+	bn = keras.layers.BatchNormalization(axis=3)(features)
+	# activation
+	features = keras.layers.Activation('relu')(bn)
+	# 2nd conv
+	features = keras.layers.Conv2D(filters=channels,
+								   kernel_size=k_size,
+								   strides=s_size,
+								   padding='SAME',
+								   activation=None,
+								   kernel_initializer='he_normal')(features)
+	# add BN layer
+	bn = keras.layers.BatchNormalization(axis=3)(features)
+	# activation
+	features = keras.layers.Activation('relu')(bn)
+	# over
+	return features
 
 # internal function to concatenate skip connection
 def concat_channel(x, y):
@@ -49,33 +81,38 @@ class UNet(object):
 	# build the model
 	def create(self):
 		# 1st encoder
-		features1 = conv_block(self.X, k_size=3, s_size=1, channels=64)
+		#features1 = conv_block(self.X, k_size=3, s_size=1, channels=64)
+		features1 = conv_block_with_bn(self.X, k_size=3, s_size=1, channels=64)
 		shape1 = tf.shape(features1)
 		# 1st max pool
 		pool1 = keras.layers.MaxPool2D(pool_size=2, strides=2, padding='SAME')(features1)
 
 		# 2nd encoder
-		features2 = conv_block(pool1, k_size=3, s_size=1, channels=128)
+		#features2 = conv_block(pool1, k_size=3, s_size=1, channels=128)
+		features2 = conv_block_with_bn(pool1, k_size=3, s_size=1, channels=128)
 		shape2 = tf.shape(features2)
 		# 2nd max pool
 		pool2 = keras.layers.MaxPool2D(pool_size=2, strides=2, padding='SAME')(features2)
 
 		# 3rd encoder
-		features3 = conv_block(pool2, k_size=3, s_size=1, channels=256)
+		#features3 = conv_block(pool2, k_size=3, s_size=1, channels=256)
+		features3 = conv_block_with_bn(pool2, k_size=3, s_size=1, channels=256)
 		shape3 = tf.shape(features3)
 		# 3rd max pool
 		pool3 = keras.layers.MaxPool2D(pool_size=2, strides=2, padding='SAME')(features3)
 
 		# 4th encoder
-		features4 = conv_block(pool3, k_size=3, s_size=1, channels=512)
+		#features4 = conv_block(pool3, k_size=3, s_size=1, channels=512)
+		features4 = conv_block_with_bn(pool3, k_size=3, s_size=1, channels=512)
 		shape4 = tf.shape(features4)
 		# 4th max pool
 		pool4 = keras.layers.MaxPool2D(pool_size=2, strides=2, padding='SAME')(features4)
 
 		# 5th encoder
-		features5 = conv_block(pool4, k_size=3, s_size=1, channels=1024)
+		#features5 = conv_block(pool4, k_size=3, s_size=1, channels=1024)
+		features5 = conv_block_with_bn(pool4, k_size=3, s_size=1, channels=1024)
 
-		# 1st deconv
+		# 1st deconv (without activation)
 		deconv1 = keras.layers.Conv2DTranspose(filters=512,
 											   kernel_size=2,
 											   strides=2,
@@ -85,9 +122,10 @@ class UNet(object):
 		deconv1 = deconv1[:][0:shape4[1]][0:shape4[2]][:]
 		concat1 = concat_channel(features4, deconv1)
 		# 6th encoder
-		features6 = conv_block(concat1, k_size=3, s_size=1, channels=512)
+		#features6 = conv_block(concat1, k_size=3, s_size=1, channels=512)
+		features6 = conv_block_with_bn(concat1, k_size=3, s_size=1, channels=512)
 
-		# 2nd deconv
+		# 2nd deconv (without activation)
 		deconv2 = keras.layers.Conv2DTranspose(filters=256,
 											   kernel_size=2,
 											   strides=2,
@@ -95,9 +133,10 @@ class UNet(object):
 		deconv2 = deconv2[:][0:shape3[1]][0:shape3[2]][:]
 		concat2 = concat_channel(features3, deconv2)
 		# 7th encoder
-		features7 = conv_block(concat2, k_size=3, s_size=1, channels=256)
+		#features7 = conv_block(concat2, k_size=3, s_size=1, channels=256)
+		features7 = conv_block_with_bn(concat2, k_size=3, s_size=1, channels=256)
 
-		# 3rd deconv
+		# 3rd deconv (without activation)
 		deconv3 = keras.layers.Conv2DTranspose(filters=128,
 											   kernel_size=2,
 											   strides=2,
@@ -105,9 +144,10 @@ class UNet(object):
 		deconv3 = deconv3[:][0:shape2[1]][0:shape2[2]][:]
 		concat3 = concat_channel(features2, deconv3)
 		# 8th encoder
-		features8 = conv_block(concat3, k_size=3, s_size=1, channels=128)
+		#features8 = conv_block(concat3, k_size=3, s_size=1, channels=128)
+		features8 = conv_block_with_bn(concat3, k_size=3, s_size=1, channels=128)
 
-		# 4th deconv
+		# 4th deconv (without activation)
 		deconv4 = keras.layers.Conv2DTranspose(filters=64,
 											   kernel_size=2,
 											   strides=2,
@@ -115,13 +155,14 @@ class UNet(object):
 		deconv4 = deconv4[:][0:shape1[1]][0:shape1[2]][:]
 		concat4 = concat_channel(features1, deconv4)
 		# 9th encoder
-		features9 = conv_block(concat4, k_size=3, s_size=1, channels=64)
+		#features9 = conv_block(concat4, k_size=3, s_size=1, channels=64)
+		features9 = conv_block_with_bn(concat4, k_size=3, s_size=1, channels=64)
 		# 1x1 conv over all channels
-		self.logits_before_softmax = keras.layers.Conv2D(filters=2,
+		self.logits_before_softmax = keras.layers.Conv2D(filters=self.NUM_CLASSES,
 														 kernel_size=1,
 														 strides=1,
 														 padding='SAME',
-														 activation='relu',
+														 activation=None,
 														 kernel_initializer='he_normal')(features9)
 
 

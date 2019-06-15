@@ -12,6 +12,7 @@ from unet_model import loss_func
 from unet_input import IMAGE_X
 from unet_input import IMAGE_Y
 from unet_input import NUM_CLASSES
+import CLR
 
 # set visible CUDA devices
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'		# only use one GPU is enough
@@ -89,12 +90,16 @@ with tf.name_scope('train_and_test'):
 	with tf.name_scope('optimization'):
 		# placeholder to control learning rate
 		lr = tf.placeholder(dtype=tf.float32, shape=[], name='learning_rate')
+		
 		# use Adam
 		train_op = tf.train.AdamOptimizer(learning_rate=lr,
 									   beta1=0.9,
 									   beta2=0.999,
 									   epsilon=1e-08).minimize(loss, global_step=global_step)
-
+		'''
+		# use SGD
+		train_op = tf.train.GradientDescentOptimizer(learning_rate=lr).minimize(loss, global_step=global_step)
+		'''
 # build the training process
 def train(cur_lr, sess, summary_writer, summary_op):
 	'''
@@ -180,6 +185,79 @@ def test(sess, summary_writer):
 	# over
 	return current_acc
 
+# tuning learning rate
+def tune_lr(cur_lr, sess, summary_writer):
+	'''
+	input:
+		cur_lr : learning rate for current epoch (scalar)
+		sess : tf session to run the training process
+		summary_writer : summary writer
+	output:
+		current_acc : accuracy on test set after current epoch
+	'''
+	############################ train part ############################
+	# get training iterator handles
+	train_handle_val = sess.run(train_handle)
+	# initialize iterator
+	sess.run(train_iterator.initializer)
+	# training loop
+	current_batch = 0
+	while True:
+		try:
+			# read batch of data from training set
+			labels_val, images_val = sess.run([labels, images], feed_dict={handle:train_handle_val})
+			# feed this batch
+			_, loss_val, batch_acc_val, global_step_val = \
+				sess.run([train_op, loss, batch_acc, global_step],
+						feed_dict={input_labels : labels_val,
+								   input_images : images_val,
+								   lr : cur_lr})
+			current_batch += 1
+		except tf.errors.OutOfRangeError:
+			break
+	############################ test part ############################
+	# get iterator handle
+	test_handle_val = sess.run(test_handle)
+	# initialize iterator
+	sess.run(test_iterator.initializer)
+	# validation loop
+	correctness = 0
+	loss_val = 0
+	while True:
+		try:
+			# read batch of data from testing set
+			labels_val, images_val = sess.run([labels, images], feed_dict={handle:test_handle_val})
+			cur_batch_size = labels_val.shape[0]
+			# test on single batch
+			batch_predict_val, batch_loss_val, global_step_val = \
+						sess.run([batch_predict, loss, global_step],
+								 feed_dict={input_labels : labels_val,
+											input_images : images_val})
+			# for labels and predictions are all N-d arrays, we must flatten them first ...
+			labels_val = labels_val.flatten().astype(np.float32)
+			batch_predict_val = batch_predict_val.flatten().astype(np.float32)
+
+			correctness += np.asscalar(np.sum(a=(batch_predict_val==labels_val), dtype=np.float32))
+			loss_val += np.asscalar(batch_loss_val*cur_batch_size*IMAGE_X*IMAGE_Y)
+		except tf.errors.OutOfRangeError:
+			break
+	# compute accuracy and loss after a whole epoch
+	current_acc = correctness/test_dataset_size/IMAGE_X/IMAGE_Y
+	loss_val /= test_dataset_size/IMAGE_X/IMAGE_Y
+	# print and summary
+	msg = 'test accuracy = %.2f%%' % (current_acc*100)
+	lr_summary = tf.Summary(value=[tf.Summary.Value(tag='current_lr', simple_value=cur_lr)])
+	test_acc_summary = tf.Summary(value=[tf.Summary.Value(tag='test_accuracy',simple_value=current_acc)])
+	test_loss_summary = tf.Summary(value=[tf.Summary.Value(tag='test_loss', simple_value=loss_val)])
+	# write summary
+	summary_writer.add_summary(summary=lr_summary, global_step=global_step_val)
+	summary_writer.add_summary(summary=test_acc_summary, global_step=global_step_val)
+	summary_writer.add_summary(summary=test_loss_summary, global_step=global_step_val)
+	# print message
+	print(msg)
+	# over
+	return current_acc
+
 # simple function to adjust learning rate between epochs
 def update_learning_rate(cur_epoch):
 	'''
@@ -203,6 +281,7 @@ def update_learning_rate(cur_epoch):
 
 
 ###################### main entrance ######################
+'''
 if __name__ == "__main__":
 	# set tensorboard summary path
 	try:
@@ -253,3 +332,40 @@ if __name__ == "__main__":
 	# finished
 	print('++++++++++++++++++++++++++++++++++++++++')
 	print('best accuracy = %.2f%%.'%(best_acc*100))
+'''
+if __name__ == "__main__":
+	# set tensorboard summary path
+	try:
+		options, args = getopt.getopt(sys.argv[1:], '', ['logdir='])
+	except getopt.GetoptError:
+		print('invalid arguments!')
+		sys.exit(-1)
+	for option, value in options:
+		if option == '--logdir':
+			summary_name = value
+
+	# train and test the model
+	cur_lr = None
+	best_acc = 0
+	with tf.Session() as sess:
+		# initialize variables
+		sess.run(tf.global_variables_initializer())
+		sess.run(tf.local_variables_initializer())
+
+		# build the tensorboard summary
+		summary_writer = tf.summary.FileWriter(summary_path+summary_name)
+
+		# train in epochs
+		for cur_epoch in range(num_epochs):
+			# get current lr
+			cur_lr = CLR.clr(epoch=cur_epoch, 
+							 epoch_size=np.ceil(train_dataset_size/train_batch_size), 
+							 step_size=num_epochs*np.ceil(train_dataset_size/train_batch_size),
+							 lr_min=1e-3,
+							 lr_max=1e-2)
+			# print epoch title
+			print('Current epoch No.%d, learning rate = %.2e' % (cur_epoch+1, cur_lr))
+			# tune lr
+			tune_lr(cur_lr, sess, summary_writer)
+	# finished
+	print('++++++++++++++++++++++++++++++++++++++++')
